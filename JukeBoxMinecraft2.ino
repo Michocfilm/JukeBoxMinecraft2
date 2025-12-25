@@ -65,8 +65,8 @@ I2SStream i2s_bt;
 BluetoothA2DPSink a2dp_sink(i2s_bt);
 
 // ---------------- UID Mapping ----------------
-byte style[4]      = {0x55, 0x9C, 0xD1, 0x49};
-byte shakeitoff[4] = {0xAE, 0x4F, 0x37, 0x06};
+byte style[7]      = {0x04, 0xB1, 0x03, 0x21, 0x3D, 0x41, 0x89};
+byte shakeitoff[7] = {0x04, 0x71, 0xD4, 0x23, 0x3D, 0x41, 0x89};
 byte blankspace[4] = {0x9C, 0x4C, 0x3A, 0x06};
 
 // ---------------- PROTOTYPES ----------------
@@ -80,6 +80,17 @@ bool isSameUID_7Byte(byte *a, byte *b){
    for(int i=0;i<7;i++) if(a[i]!=b[i]) return false;
    return true;
 }
+
+bool isCardStillPresent() {
+  byte atqa[2];
+  byte size = sizeof(atqa);
+
+  MFRC522::StatusCode status =
+      rfid.PICC_WakeupA(atqa, &size);
+
+  return (status == MFRC522::STATUS_OK);
+}
+
 
 // ฟังก์ชันค่อยๆ หรี่เสียง (Software Fade Out)
 void fadeOut() {
@@ -263,7 +274,14 @@ void TaskRFID(void *pv){
       openFileForUID(rfid.uid.uidByte);
       rfid.PICC_HaltA(); // หยุดการอ่าน
     }
-    
+    //
+    if (isPlaying && !isCardStillPresent()) {
+      Serial.println("🟥 Card removed");
+      fadeOut();
+      isPlaying = false;
+      injectSilence();
+    }
+
     // ... ส่วน Timeout เหมือนเดิม
     vTaskDelay(50);
   }
