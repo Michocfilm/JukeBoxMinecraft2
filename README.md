@@ -27,7 +27,9 @@ Library ESP32 VERSION 2.0.17<br>
 6. Module upper & change 3.7V -> 5V<br>
 7. Button(momentary) x1<br>
 8. TTP223 x2<br>
-8. JST XH2.54 7Pin x3<br>
-9. JST XH2.54 2Pin x1<br>
-10. PCB 50x70 mm<br>
-11. BOX<br>
+9. JST XH2.54 7Pin x3<br>
+10. JST XH2.54 2Pin x1<br>
+11. PCB 50x70 mm<br>
+12. Battery Lithium Polymer 10000mAh 3.7V<br>
+13. USB Type C Connector Jack Female<br>
+14. BOX<br>
