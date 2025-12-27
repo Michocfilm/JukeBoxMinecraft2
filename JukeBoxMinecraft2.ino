@@ -7,10 +7,6 @@
 #include "BluetoothA2DPSink.h"
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
-#include "esp_bt_main.h"
-#include "esp_bt_device.h"
-#include "esp_bt.h"
-
 
 // ---------------- PIN ----------------
 #define BTN_PIN 13
@@ -313,7 +309,6 @@ void TaskAudio(void *pv) {
     if (isPlaying && file) {
       if (file.available()) {
         size_t bytes_read = file.read(buffer, sizeof(buffer));
-
         int16_t *samples = (int16_t *)buffer;
         int count = bytes_read / 2;
         for (int i = 0; i < count; i++) {
