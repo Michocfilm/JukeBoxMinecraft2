@@ -131,7 +131,6 @@ void injectSilence() {
 
 // ตั้งค่า I2S สำหรับ SD Card (Manual Driver)
 void i2s_init_sd() {
-  // ต้อง Uninstall ก่อนเสมอเผื่อมี config เก่าค้าง
   i2s_driver_uninstall(I2S_NUM_0);
   delay(100);
 
@@ -162,7 +161,7 @@ void i2s_init_sd() {
 void enterModeBluetooth() {
   Serial.println("🔄 Switching to Bluetooth...");
 
-  // 1. หยุด SD
+  // หยุด SD
   if (isPlaying) fadeOut();
   isPlaying = false;
   if (file) file.close();
@@ -252,7 +251,7 @@ void TaskRFID(void *pv) {
     if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
       lastSeen = millis();
 
-      // *** 1. ตรวจสอบชนิดบัตร (PICC Type) ***
+      // *** ตรวจสอบชนิดบัตร (PICC Type) ***
       MFRC522::PICC_Type piccType = rfid.PICC_GetType(rfid.uid.sak);
       if (piccType != MFRC522::PICC_TYPE_MIFARE_UL &&  // NTAG213/215
           piccType != MFRC522::PICC_TYPE_MIFARE_1K &&  // MIFARE Classic
@@ -286,12 +285,6 @@ void TaskRFID(void *pv) {
       rfid.PICC_HaltA();  // หยุดการอ่าน
     }
     //
-    // if (isPlaying && !isCardStillPresent()) {
-    //   Serial.println("🟥 Card removed");
-    //   fadeOut();
-    //   isPlaying = false;
-    //   injectSilence();
-    // }
     if (isPlaying) {
       if (isCardStillPresent()) {
         lastSeen = millis();
