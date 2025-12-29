@@ -39,7 +39,7 @@ volatile bool btnPressed = false;
 unsigned long pressStart = 0;
 bool btnPrev = HIGH;
 
-volatile int mode = 0;// Mode: 0 = RFID, 1 = Bluetooth
+volatile int mode = 0;  // Mode: 0 = RFID, 1 = Bluetooth
 
 unsigned long nextPressStart = 0;
 unsigned long prevPressStart = 0;
@@ -68,6 +68,9 @@ unsigned long lastPrevAction = 0;
 #define LONG_PRESS_MS 1500
 #define DEBOUNCE_MS 40
 bool firstBtAction = true;  // ป้องกัน false trigger ตอนกดครั้งแรกในโหมด Bluetooth
+int cardFailCount = 0;
+#define CARD_FAIL_LIMIT 3
+
 
 
 // ---------------- A2DP ----------------
@@ -166,15 +169,15 @@ void enterModeBluetooth() {
   injectSilence();
   i2s_driver_uninstall(I2S_NUM_0);
   delay(100);
-  i2s_bt.end(); 
+  i2s_bt.end();
   auto cfg = i2s_bt.defaultConfig();
   cfg.pin_bck = I2S_BCLK;
   cfg.pin_ws = I2S_LRC;
   cfg.pin_data = I2S_DIN;
   cfg.buffer_count = 8;
-  cfg.buffer_size = 256; // เพิ่ม buffer ให้ BT เสถียรขึ้น
+  cfg.buffer_size = 256;  // เพิ่ม buffer ให้ BT เสถียรขึ้น
   i2s_bt.begin(cfg);
-  a2dp_sink.end(false); 
+  a2dp_sink.end(false);
   a2dp_sink.set_volume(volumeLevel);
   a2dp_sink.start("MIFI");
 
@@ -188,16 +191,16 @@ void enterModeBluetooth() {
 void enterModeRFID() {
   Serial.println("🔄 Switching to RFID/SD...");
   if (a2dp_sink.get_audio_state() == ESP_A2D_AUDIO_STATE_STARTED) {
-      a2dp_sink.stop();
+    a2dp_sink.stop();
   }
   a2dp_sink.disconnect();
   delay(100);
-  a2dp_sink.end(false); 
+  a2dp_sink.end(false);
   i2s_bt.end();
   i2s_driver_uninstall(I2S_NUM_0);
   delay(500);
   i2s_init_sd();
-  
+
   mode = 0;
   isPlaying = false;
   isManuallyPaused = false;
@@ -283,12 +286,29 @@ void TaskRFID(void *pv) {
       rfid.PICC_HaltA();  // หยุดการอ่าน
     }
     //
-    if (isPlaying && !isCardStillPresent()) {
-      Serial.println("🟥 Card removed");
-      fadeOut();
-      isPlaying = false;
-      injectSilence();
+    // if (isPlaying && !isCardStillPresent()) {
+    //   Serial.println("🟥 Card removed");
+    //   fadeOut();
+    //   isPlaying = false;
+    //   injectSilence();
+    // }
+    if (isPlaying) {
+      if (isCardStillPresent()) {
+        lastSeen = millis();
+        cardFailCount = 0;
+      } else {
+        cardFailCount++;
+        if (cardFailCount >= 3 && millis() - lastSeen > CARD_TIMEOUT) {
+
+          Serial.println("🟥 Card removed (stable)");
+          fadeOut();
+          isPlaying = false;
+          injectSilence();
+          cardFailCount = 0;
+        }
+      }
     }
+
     vTaskDelay(50);
   }
 }
@@ -462,14 +482,14 @@ void loop() {
     }
   }
 
-    // --- NEXT BUTTON ---
+  // --- NEXT BUTTON ---
   bool nextNow = digitalRead(BTN_NEXT);
   if (nextPrev == LOW && nextNow == HIGH) {
     nextPressStart = millis();
   }
   if (nextPrev == HIGH && nextNow == LOW) {
     unsigned long pressTime = millis() - nextPressStart;
-    if (mode == 1) { // Bluetooth mode
+    if (mode == 1) {  // Bluetooth mode
       if (pressTime >= 800) {
         Serial.println("⏭️ BT Next Track");
         a2dp_sink.next();
@@ -477,7 +497,7 @@ void loop() {
         Serial.println("🔊 BT Volume Up (short press)");
         volumeUp();
       }
-    } else if (mode == 0) { // RFID/SD mode
+    } else if (mode == 0) {  // RFID/SD mode
       if (pressTime >= 50) {
         Serial.println("🔊 SD Volume Up (short press)");
         sdVolumeUp();
@@ -493,7 +513,7 @@ void loop() {
   }
   if (prevPrev == HIGH && prevNow == LOW) {
     unsigned long pressTime = millis() - prevPressStart;
-    if (mode == 1) { // Bluetooth mode
+    if (mode == 1) {  // Bluetooth mode
       if (pressTime >= 800) {
         Serial.println("⏮️ BT Previous Track");
         a2dp_sink.previous();
@@ -501,7 +521,7 @@ void loop() {
         Serial.println("🔉 BT Volume Down (short press)");
         volumeDown();
       }
-    } else if (mode == 0) { // RFID/SD mode
+    } else if (mode == 0) {  // RFID/SD mode
       if (pressTime >= 50) {
         Serial.println("🔉 SD Volume Down (short press)");
         sdVolumeDown();
@@ -509,5 +529,4 @@ void loop() {
     }
   }
   prevPrev = prevNow;
-
 }
