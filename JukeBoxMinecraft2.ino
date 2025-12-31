@@ -97,7 +97,6 @@ bool isSameUID_7Byte(byte *a, byte *b) {
 bool isCardStillPresent() {
   byte atqa[2];
   byte size = sizeof(atqa);
-
   MFRC522::StatusCode status =
     rfid.PICC_WakeupA(atqa, &size);
 
@@ -133,7 +132,6 @@ void injectSilence() {
 void i2s_init_sd() {
   i2s_driver_uninstall(I2S_NUM_0);
   delay(100);
-
   i2s_config_t config = {
     .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX),
     .sample_rate = 44100,
@@ -141,17 +139,15 @@ void i2s_init_sd() {
     .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
     .communication_format = I2S_COMM_FORMAT_I2S_MSB,
     .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
-    .dma_buf_count = 8,  // เพิ่ม Buffer หน่อยเพื่อความลื่น
+    .dma_buf_count = 8,
     .dma_buf_len = 256
   };
-
   i2s_pin_config_t pin_config = {
     .bck_io_num = I2S_BCLK,
     .ws_io_num = I2S_LRC,
     .data_out_num = I2S_DIN,
     .data_in_num = -1
   };
-
   i2s_driver_install(I2S_NUM_0, &config, 0, NULL);
   i2s_set_pin(I2S_NUM_0, &pin_config);
   i2s_zero_dma_buffer(I2S_NUM_0);
@@ -160,8 +156,6 @@ void i2s_init_sd() {
 // เข้าโหมด Bluetooth
 void enterModeBluetooth() {
   Serial.println("🔄 Switching to Bluetooth...");
-
-  // หยุด SD
   if (isPlaying) fadeOut();
   isPlaying = false;
   if (file) file.close();
@@ -174,12 +168,11 @@ void enterModeBluetooth() {
   cfg.pin_ws = I2S_LRC;
   cfg.pin_data = I2S_DIN;
   cfg.buffer_count = 8;
-  cfg.buffer_size = 256;  // เพิ่ม buffer ให้ BT เสถียรขึ้น
+  cfg.buffer_size = 256; 
   i2s_bt.begin(cfg);
   a2dp_sink.end(false);
   a2dp_sink.set_volume(volumeLevel);
   a2dp_sink.start("MIFI");
-
   mode = 1;
   firstBtAction = true;
   btPlaying = true;
@@ -199,7 +192,6 @@ void enterModeRFID() {
   i2s_driver_uninstall(I2S_NUM_0);
   delay(500);
   i2s_init_sd();
-
   mode = 0;
   isPlaying = false;
   isManuallyPaused = false;
@@ -213,9 +205,7 @@ void openFileForUID(byte *uid) {
     isPlaying = false;
     injectSilence();
   }
-
   if (file) file.close();
-
   if (isSameUID_7Byte(uid, style)) {
     file = SD.open("/music/Taylor-Swift-style.wav");
     Serial.println("Taylor-Swift-style");
@@ -230,7 +220,6 @@ void openFileForUID(byte *uid) {
     Serial.println("❌ File open failed");
     return;
   }
-
   file.seek(44);
   memcpy(lastUID, uid, rfid.uid.size);
   if (rfid.uid.size < 10) {
@@ -247,7 +236,6 @@ void TaskRFID(void *pv) {
       vTaskDelay(200);
       continue;
     }
-
     if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
       lastSeen = millis();
 
@@ -270,19 +258,17 @@ void TaskRFID(void *pv) {
           break;
         }
       }
-
       if (isSame) {  // บัตรเดิม
         if (!isPlaying && !isManuallyPaused) {
           isPlaying = true;
         }
-        rfid.PICC_HaltA();  // หยุดการอ่าน
+        rfid.PICC_HaltA(); 
         vTaskDelay(50);
         continue;
       }
-
       // บัตรใหม่
       openFileForUID(rfid.uid.uidByte);
-      rfid.PICC_HaltA();  // หยุดการอ่าน
+      rfid.PICC_HaltA();  
     }
     //
     if (isPlaying) {
@@ -292,7 +278,6 @@ void TaskRFID(void *pv) {
       } else {
         cardFailCount++;
         if (cardFailCount >= 3 && millis() - lastSeen > CARD_TIMEOUT) {
-
           Serial.println("🟥 Card removed (stable)");
           fadeOut();
           isPlaying = false;
@@ -301,7 +286,6 @@ void TaskRFID(void *pv) {
         }
       }
     }
-
     vTaskDelay(50);
   }
 }
@@ -332,7 +316,7 @@ void TaskAudio(void *pv) {
         i2s_write(I2S_NUM_0, buffer, bytes_read, &bytes_out, portMAX_DELAY);
 
       } else {
-        // เพลงจบแล้ว วนลูป หรือ หยุด
+        // เพลงจบแล้ววนลูป
         file.seek(44);  // Loop
       }
     }
@@ -400,27 +384,23 @@ void sdVolumeDown() {
 // ---------------- SETUP ----------------
 void setup() {
   // ป้องกัน Brownout
-  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);  // กันไม่ให้ reboot เองตอนไฟตกหรือกระแสรไม่พอ
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);  // กันไม่ให้ reboot เองตอนไฟไม่พอ
   Serial.begin(115200);
   pinMode(BTN_PIN, INPUT_PULLUP);
   pinMode(BTN_NEXT, INPUT_PULLUP);
   pinMode(BTN_PREV, INPUT_PULLUP);
-  // SD
   SPI_SD.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
   if (!SD.begin(SD_CS, SPI_SD)) {
     Serial.println("❌ SD Mount Failed");
   } else {
     Serial.println("✅ SD Mounted");
   }
-
-  // RFID
   SPI_RFID.begin(RFID_SCK, RFID_MISO, RFID_MOSI, RFID_SS);
   rfid.PCD_Init();
   // เริ่มต้นด้วยโหมด SD/RFID
   Serial.println("Starting in RFID Mode...");
   mode = 0;
   i2s_init_sd();
-  // Tasks
   xTaskCreatePinnedToCore(TaskRFID, "RFID", 4096, NULL, 1, NULL, 1);
   xTaskCreatePinnedToCore(TaskAudio, "AUDIO", 4096, NULL, 1, NULL, 0);
 
@@ -429,22 +409,18 @@ void setup() {
 
 // ---------------- LOOP (Button Logic) ----------------
 void loop() {
-  // ===== PLAY / PAUSE / MODE BUTTON =====
+  // ===== PLAY / PAUSE / BUTTON MODE =====
   static bool playPressed = false;
   static bool playHandled = false;
   static unsigned long playPressTime = 0;
   static unsigned long playReleaseTime = 0;
-
   bool playNow = (digitalRead(BTN_PIN) == LOW);  // Active LOW
 
-  // เริ่มกด
   if (!playPressed && playNow && millis() - playReleaseTime > 150) {
     playPressed = true;
     playHandled = false;
     playPressTime = millis();
   }
-
-  // ระหว่างกดค้าง
   if (playPressed && playNow && !playHandled) {
     unsigned long held = millis() - playPressTime;
     if (held >= 800) {
@@ -459,7 +435,6 @@ void loop() {
   if (playPressed && !playNow) {
     playPressed = false;
     playReleaseTime = millis();
-
     if (!playHandled) {
       unsigned long pressDuration = millis() - playPressTime;
       if (pressDuration >= 50 && pressDuration < 800) {
